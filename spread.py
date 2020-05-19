@@ -1,7 +1,9 @@
 import networkx as nx
 import random
+import numpy as np
 import matplotlib.pyplot as plt
 import json
+import math
 
 class Spread_Net():
 	def __init__(self, G, infected_init=5, setval=True):
@@ -13,6 +15,8 @@ class Spread_Net():
 			if n in infected:
 				self.G.node[n]['status'] = 'infected'
 				self.G.node[n]['day'] = 0
+				self.G.node[n]['future'] = 'immunity'
+				self.G.node[n]['symptoms'] = False
 			else:
 				self.G.node[n]['status'] = 'healthy'
 		self.cases_count = infected_init
@@ -81,38 +85,55 @@ class Spread_Net():
 		self.spread_infection(is_lockdown)
 
 	def kill(self):
-		#kills death_rate fraction of the infected people
-		inf_todie = []
+		#kills people by a probability distribution of their sick time
+		dead = []
 		for n in self.G.nodes():
 			if self.G.node[n]['status']=='infected':
-				if self.G.node[n]['day']==self.sick_time:
-					inf_todie.append(n)
-		dead = list(random.sample(inf_todie, int(round(self.death_rate*len(inf_todie)))))
+				if self.G.node[n]['future']=='death':
+					d = self.G.node[n]['day']
+					if d>6:
+						dprob = self.death_dist[d]
+						die = np.random.choice(np.arange(0,2), p=[1-dprob, dprob])
+						if die:
+							dead.append(n)
+		#a person dies as per probability calculated from their day of sickness
 		for n in dead:
 			self.G.node[n]['status'] = 'dead'
 		#returns the number of people killed
 		return len(dead)
 
 	def immune_susceptible(self):
-		#immunizes some fraction and makes the rest susceptible again
-		inf_toimm = []
+		#scans all nodes that do not have future as dead and probabilistically decides by the day if they recover today
+		to_update = []
 		for n in self.G.nodes():
 			if self.G.node[n]['status']=='infected':
-				if self.G.node[n]['day']>=self.recover_time:
-					inf_toimm.append(n)
-		immune = set(random.sample(inf_toimm, int(round(self.immune_rate*len(inf_toimm)))))
-		for n in inf_toimm:
-			if n in immune:
+				if self.G.node[n]['future']!='death':
+					dayval = self.G.node[n]['day']
+					probtoday = self.recover_func(float(dayval))
+					today = np.random.choice(np.arange(0,2), p=[1-probtoday, probtoday])
+					if today:
+						to_update.append(n)
+
+		for n in to_update:
+			if self.G.node[n]['future']=='immunity':
 				self.G.node[n]['status'] = 'immune'
-			else:
+			elif self.G.node[n]['future']=='health':
 				self.G.node[n]['status'] = 'healthy'
-		#return the number of people that gained immunity
-		return len(list(immune))
+			else:
+				print 'Unexpected future/status on node', n, self.G.node[n]
+		
+
+	def recover_func(self, x):
+		return (float(1)/12)*math.exp(-(3.14)*((x-17)/12)**2)
 
 	def spread_infection(self, is_lockdown=False):
 		to_infect = []
 		for n in self.G.nodes():
 			if self.G.node[n]['status']=='infected':
+				if self.G.node[n]['symptoms']:
+					tval = self.trans_symp
+				else:
+					tval = self.trans_asymp
 				neighbors = list(self.G.neighbors(n))
 				if is_lockdown:
 					vulnerable = []
@@ -121,20 +142,48 @@ class Spread_Net():
 							vulnerable.append(neigh)
 				else:
 					vulnerable = neighbors
-				affected_neighbors = random.sample(vulnerable, int(round(self.transmission*len(vulnerable))))
+				affected_neighbors = random.sample(vulnerable, int(round(tval*len(vulnerable))))
 				to_infect.extend(affected_neighbors)
-		infected_today = 0
+		infected_today = []
 		for n in to_infect:
 			if self.G.node[n]['status']=='healthy':
 				self.G.node[n]['status'] = 'infected'
 				self.G.node[n]['day'] = 0
-				infected_today+=1
+				infected_today.append(n)
 		#print infected_today, 'people were newly infected today'
-		self.cases_count+=infected_today
+		self.cases_count+=len(infected_today)
+		asymp = random.sample(infected_today, int(round(self.asymp_ratio*len(infected_today))))
+		symp = list(set(infected_today) - set(asymp))
+		#mark whether the person is symptomatic or not
+		symp_set = set(symp)
+		for n in infected_today:
+			if n in symp_set:
+				self.G.node[n]['symptoms'] = True
+			else:
+				self.G.node[n]['symptoms'] = False
+		f = self.death_rate/(1-self.asymp_ratio)
+		to_die = random.sample(symp, int(round(f*len(symp))))
+		for n in to_die:
+			self.G.node[n]['future'] = 'death'
+		rest = list(set(infected_today) - set(to_die))
+		#immune and make the rest of rest susceptible
+		fi = self.immune_rate/(1-self.death_rate)
+		to_imm = random.sample(rest, int(round(fi*len(rest))))
+		immset = set(to_imm)
+		for n in rest:
+			if n in immset:
+				self.G.node[n]['future'] = 'immunity'
+			else:
+				self.G.node[n]['future'] = 'health'
 
-	def set_parameters(self, transmission=0.1, death_rate=0.05, immune_rate=0.85, sick_time=6, recover_time=14):
-		self.transmission = transmission
+	def set_parameters(self, trans_symp=0.01, trans_asymp=0.08, death_rate=0.05, immune_rate=0.85, sick_time=6, recover_time=14, asymp_ratio=0.8):
+		self.trans_asymp = trans_asymp
+		self.trans_symp = trans_symp
 		self.death_rate = death_rate
 		self.immune_rate = immune_rate
 		self.sick_time = sick_time
 		self.recover_time = recover_time
+		self.asymp_ratio = asymp_ratio
+		#the following variables are hardfixed
+		death_list = [1, 1.5, 4.5, 6, 8, 10, 12, 14, 12, 10, 8, 6, 4.5, 1.5, 1]
+		self.death_dist = {i+7:death_list[i] for i in range(len(death_list))}
