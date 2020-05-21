@@ -12,16 +12,21 @@ class Social_Net():
 		self.set_parameters()
 		if complete_net:
 			self.start_network(n)
-			self.workplace_BA()
-			self.workplace_random()
-			self.interaction()
-			self.social()
-			print 'Classic network of size', n, 'created'
+			#self.workplace_BA()
+			#self.workplace_random()
+			#self.interaction()
+			#self.social()
+			#print 'Classic network of size', n, 'created'
 		else:
-			print 'Network initialized. Please use function start_network, workplace_BA, workplace_random, interaction, and social to make the network'
+			#print 'Network initialized. Please use function start_network to make the network'
+			pass
 
 	def start_network(self, n):
 		self.family_graph(n, self.G)
+		self.workplace_BA()
+		self.workplace_random()
+		self.interaction()
+		self.social()
 		#print 'Graph constructed'
 
 	def return_graph(self):
@@ -83,12 +88,11 @@ class Social_Net():
 		allnodes = self.G.nodes()
 		allpairs = list(it.combinations(allnodes, 2))
 		select = random.sample(allpairs, k=int(self.social_prob*len(allpairs)))
-		print 'Social interaction will add', len(select), 'edges'
+		#print 'Social interaction will add', len(select), 'edges'
 		for i,j in select:
 			self.G.add_edge(i, j, lockdown=False)
 
-	def set_parameters(self, family_sizes=[0.3, 0.35, 0.18, 0.17], workrate=0.7, essential=0.2, 
-							ba_degree=3, essential_connection=0.6, interaction_prob=0.20, social_prob=0.001):
+	def set_parameters(self, family_sizes=[0.3, 0.35, 0.18, 0.17], workrate=0.7, essential=0.2, ba_degree=3, essential_connection=0.6, interaction_prob=0.20, social_prob=0.001):
 		self.workrate = workrate
 		self.essential = essential
 		self.family_sizes = family_sizes
@@ -96,6 +100,17 @@ class Social_Net():
 		self.essential_connection = essential_connection
 		self.interaction_prob = interaction_prob
 		self.social_prob = social_prob
+
+	def return_parameters(self):
+		pardict = {}
+		pardict['workrate'] = self.workrate
+		pardict['essential'] = self.essential
+		pardict['family_sizes'] = self.family_sizes
+		pardict['ba_degree'] = self.ba_degree
+		pardict['essential_connection'] = self.essential_connection
+		pardict['interaction_prob'] = self.interaction_prob
+		pardict['social_prob'] = self.social_prob
+		return pardict
 
 	def add_clique(self, clique_size, G):
 		#adds a clique of size n to graph G
@@ -123,9 +138,9 @@ class Social_Net():
 
 
 if __name__ == '__main__':
-	My = Social_Net(complete_net=True)
-	#My.set_parameters(essential=0.7)
-	#My.start_network(50)
+	My = Social_Net(complete_net=False)
+	My.set_parameters(ba_degree=1, interaction_prob=0.1, social_prob=0.0005)
+	My.start_network(100)
 	#My.workplace_BA()
 	#My.workplace_random()
 	#My.interaction()

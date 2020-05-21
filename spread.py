@@ -17,6 +17,7 @@ class Spread_Net():
 				self.G.node[n]['day'] = 0
 				self.G.node[n]['future'] = 'immunity'
 				self.G.node[n]['symptoms'] = False
+				self.G.node[n]['recover_day'] = 14
 			else:
 				self.G.node[n]['status'] = 'healthy'
 		self.cases_count = infected_init
@@ -25,7 +26,7 @@ class Spread_Net():
 		self.inf_data, self.health_data, self.dead_data, self.immune_data = [], [], [], []
 		if setval:
 			self.set_parameters()
-		print 'Spread initialized. Run daily spread functions to continue the spread'
+		#print 'Spread initialized. Run daily spread functions to continue the spread'
 
 	def many_dayrun(self, num_days, lockstart=None, lockend=None, curve=False, img_file='temp.png', datafile='temp.json'):
 		#self.set_parameters()
@@ -49,22 +50,27 @@ class Spread_Net():
 			json.dump(dict_tosave, fp)
 		if curve:
 			N = self.G.number_of_nodes()
-			x = [i+1 for i in range(num_days)]
-			plt.plot(x, self.health_data, 'go-', markersize=3.5, linewidth=0.5)
-			plt.plot(x, self.inf_data, 'ro-', markersize=3.5, linewidth=0.5)
-			plt.plot(x, self.immune_data, 'bo-', markersize=3.5, linewidth=0.5)
-			plt.plot(x, self.dead_data, 'ko-', markersize=3.5, linewidth=0.5)
-			plt.plot(x, self.cases_data, 'yo-', markersize=3.5, linewidth=0.5)
-			print 'checking before plotting', N
-			if lockstart:
-				plt.plot([lockstart]*3, [0, N/2, N], color='0.5')
-			if lockend:
-				plt.plot([lockend]*3, [0, N/2, N], color='0.5')
-			plt.legend(['healthy', 'infected', 'immune', 'dead', 'total cases'], loc='best', fontsize='x-small')
-			plt.xticks(fontsize='x-small')
-			plt.yticks(fontsize='x-small')
-			plt.savefig(img_file, dpi=500)
-			plt.close()
+			self.draw_curve(dict_tosave, N, num_days, lockstart=lockstart, lockend=lockend, img_file=img_file)
+		return dict_tosave
+
+	def draw_curve(self, datadict, N, num_days, lockstart=None, lockend=None, img_file='temp.png'):
+		x = [i+1 for i in range(num_days)]
+		plt.plot(x, datadict['healthy'], 'go-', markersize=2, linewidth=0.5)
+		plt.plot(x, datadict['infected'], 'ro-', markersize=2, linewidth=0.5)
+		plt.plot(x, datadict['immune'], 'bo-', markersize=2, linewidth=0.5)
+		plt.plot(x, datadict['dead'], 'ko-', markersize=2, linewidth=0.5)
+		plt.plot(x, datadict['total'], 'yo-', markersize=2, linewidth=0.5)
+		#print 'checking before plotting', N
+		if lockstart:
+			plt.plot([lockstart]*3, [0, N/2, N], color='0.5')
+		if lockend:
+			plt.plot([lockend]*3, [0, N/2, N], color='0.5')
+		plt.legend(['healthy', 'infected', 'immune', 'dead', 'total cases'], loc='best', fontsize='x-small')
+		plt.xticks(fontsize='x-small')
+		plt.yticks(fontsize='x-small')
+		plt.savefig(img_file, dpi=500)
+		plt.close()
+		
 
 	def dayrun(self, is_lockdown=False):
 		self.kill()
@@ -90,12 +96,8 @@ class Spread_Net():
 		for n in self.G.nodes():
 			if self.G.node[n]['status']=='infected':
 				if self.G.node[n]['future']=='death':
-					d = self.G.node[n]['day']
-					if d>6:
-						dprob = self.death_dist[d]
-						die = np.random.choice(np.arange(0,2), p=[1-dprob, dprob])
-						if die:
-							dead.append(n)
+					if self.G.node[n]['day']==self.G.node[n]['death_day']:
+						dead.append(n)
 		#a person dies as per probability calculated from their day of sickness
 		for n in dead:
 			self.G.node[n]['status'] = 'dead'
@@ -108,10 +110,7 @@ class Spread_Net():
 		for n in self.G.nodes():
 			if self.G.node[n]['status']=='infected':
 				if self.G.node[n]['future']!='death':
-					dayval = self.G.node[n]['day']
-					probtoday = self.recover_func(float(dayval))
-					today = np.random.choice(np.arange(0,2), p=[1-probtoday, probtoday])
-					if today:
+					if self.G.node[n]['day']==self.G.node[n]['recover_day']:
 						to_update.append(n)
 
 		for n in to_update:
@@ -165,6 +164,7 @@ class Spread_Net():
 		to_die = random.sample(symp, int(round(f*len(symp))))
 		for n in to_die:
 			self.G.node[n]['future'] = 'death'
+			self.G.node[n]['death_day'] = np.random.choice(np.arange(5,25), p = self.death_list)
 		rest = list(set(infected_today) - set(to_die))
 		#immune and make the rest of rest susceptible
 		fi = self.immune_rate/(1-self.death_rate)
@@ -175,8 +175,9 @@ class Spread_Net():
 				self.G.node[n]['future'] = 'immunity'
 			else:
 				self.G.node[n]['future'] = 'health'
+			self.G.node[n]['recover_day'] = np.random.choice(np.arange(1,36), p = self.recover_list)
 
-	def set_parameters(self, trans_symp=0.01, trans_asymp=0.08, death_rate=0.05, immune_rate=0.85, sick_time=6, recover_time=14, asymp_ratio=0.8):
+	def set_parameters(self, trans_symp=0.005, trans_asymp=0.05, death_rate=0.05, immune_rate=0.85, sick_time=6, recover_time=14, asymp_ratio=0.8):
 		self.trans_asymp = trans_asymp
 		self.trans_symp = trans_symp
 		self.death_rate = death_rate
@@ -185,5 +186,22 @@ class Spread_Net():
 		self.recover_time = recover_time
 		self.asymp_ratio = asymp_ratio
 		#the following variables are hardfixed
-		death_list = [1, 1.5, 4.5, 6, 8, 10, 12, 14, 12, 10, 8, 6, 4.5, 1.5, 1]
-		self.death_dist = {i+7:death_list[i] for i in range(len(death_list))}
+		#death list is picked from a gaussian around 14. ranges from 5 days to 24 days.
+		self.death_list = [0.0024, 0.0037, 0.0081, 0.0159, 0.0285, 0.0465, 0.0686, 0.0918, 0.1116, 0.1229, 0.1229, 0.1116, 0.0918, 0.0686, 0.0465, 0.0285, 0.0159, 0.0081, 0.0037, 0.0024]
+		#death_list = [1, 1.5, 4.5, 6, 8, 10, 12, 14, 12, 10, 8, 6, 4.5, 1.5, 1]
+		#self.death_dist = {i+7:death_list[i] for i in range(len(death_list))}
+		#recover list is picked from a gaussian distribution around 17. Recovery ranges from 1 day to 35 days.
+		self.recover_list = [0.0002, 0.0005, 0.0009, 0.0016, 0.0028, 0.0047, 0.0076, 0.0117, 0.0173, 0.0245, 0.0332, 0.0431, 0.0536, 0.0637, 0.0726, 0.0792, 0.0828, 0.0827, 0.0792, 0.0726, 0.0637, 0.0536, 0.0431, 0.0332, 0.0245, 0.0173, 0.0117, 0.0076, 0.0047, 0.0028, 0.0016, 0.0009, 0.0005, 0.0002, 0.0001]
+
+	def return_parameters(self):
+		pardict = {}
+		pardict['trans_asymp'] = self.trans_asymp
+		pardict['trans_symp'] = self.trans_symp
+		pardict['death_rate'] = self.death_rate
+		pardict['immune_rate'] = self.immune_rate
+		pardict['sick_time'] = self.sick_time
+		pardict['recover_time'] = self.recover_time
+		pardict['asymp_ratio'] = self.asymp_ratio
+		pardict['death_list'] = self.death_list
+		pardict['recover_list'] = self.recover_list
+		return pardict
