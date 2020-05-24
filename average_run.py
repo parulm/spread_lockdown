@@ -35,7 +35,7 @@ for graphno in range(graphs):
 
 		#run the spread on this graph
 		spreading = Spread_Net(G=G, setval=True)
-		datadict = spreading.many_dayrun(num_days=ndays, curve=False, lockstart=3, lockend=93)
+		datadict = spreading.many_dayrun(num_days=ndays, curve=False, lockstart=5, lockend=65, postlock=True, complete_norm=105)
 		#print 'datadict', datadict
 		for k in avgdict.keys():
 			avgdict[k] = [i+j for i,j in zip(avgdict[k], datadict[k])]
@@ -46,4 +46,4 @@ allruns = graphs*runs
 for k in avgdict.keys():
 	avgdict[k] = [j/allruns for j in avgdict[k]]
 print 'avgdict', avgdict
-spreading.draw_curve(avgdict, N, ndays, lockstart=3, lockend=93, img_file='results/time_10k_50runs_lock_3-93.png')
+spreading.draw_curve(avgdict, N, ndays, lockstart=5, lockend=65, complete_norm=105, img_file='results/time_10k_50runs_lock_5-65_c105.png')

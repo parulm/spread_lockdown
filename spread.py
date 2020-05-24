@@ -28,15 +28,20 @@ class Spread_Net():
 			self.set_parameters()
 		#print 'Spread initialized. Run daily spread functions to continue the spread'
 
-	def many_dayrun(self, num_days, lockstart=None, lockend=None, curve=False, img_file='temp.png', datafile='temp.json'):
+	def many_dayrun(self, num_days, lockstart=None, lockend=None, postlock=False, complete_norm=None, curve=False, img_file='temp.png', datafile='temp.json'):
 		#self.set_parameters()
 		for i in range(num_days):
-			if i%10==0:
-				print 'Running simulation for day', i+1
+			#if i%10==0:
+			#	print 'Running simulation for day', i+1
 			if i+1>=lockstart and i+1<=lockend:
-				self.dayrun(is_lockdown=True)
+				self.dayrun(is_lockdown=True, is_postlock=False)
+			elif postlock:
+				if i+1<=complete_norm:
+					self.dayrun(is_lockdown=False, is_postlock=True)
+				else:
+					self.dayrun(is_lockdown=False, is_postlock=False)
 			else:
-				self.dayrun(is_lockdown=False)
+				self.dayrun(is_lockdown=False, is_postlock=False)
 			self.inf_data.append(self.inf_count)
 			self.health_data.append(self.health_count)
 			self.dead_data.append(self.dead_count)
@@ -50,10 +55,10 @@ class Spread_Net():
 			json.dump(dict_tosave, fp)
 		if curve:
 			N = self.G.number_of_nodes()
-			self.draw_curve(dict_tosave, N, num_days, lockstart=lockstart, lockend=lockend, img_file=img_file)
+			self.draw_curve(dict_tosave, N, num_days, lockstart=lockstart, lockend=lockend, complete_norm=complete_norm, img_file=img_file)
 		return dict_tosave
 
-	def draw_curve(self, datadict, N, num_days, lockstart=None, lockend=None, img_file='temp.png'):
+	def draw_curve(self, datadict, N, num_days, lockstart=None, lockend=None, complete_norm=None, img_file='temp.png'):
 		x = [i+1 for i in range(num_days)]
 		plt.plot(x, datadict['healthy'], 'go-', markersize=2, linewidth=0.5)
 		plt.plot(x, datadict['infected'], 'ro-', markersize=2, linewidth=0.5)
@@ -65,6 +70,8 @@ class Spread_Net():
 			plt.plot([lockstart]*3, [0, N/2, N], color='0.5')
 		if lockend:
 			plt.plot([lockend]*3, [0, N/2, N], color='0.5')
+		if complete_norm:
+			plt.plot([complete_norm]*3, [0, N/2, N], color='pink')
 		plt.legend(['healthy', 'infected', 'immune', 'dead', 'total cases'], loc='best', fontsize='x-small')
 		plt.xticks(fontsize='x-small')
 		plt.yticks(fontsize='x-small')
@@ -72,7 +79,7 @@ class Spread_Net():
 		plt.close()
 		
 
-	def dayrun(self, is_lockdown=False):
+	def dayrun(self, is_lockdown=False, is_postlock=False):
 		self.kill()
 		self.immune_susceptible()
 		self.inf_count, self.health_count, self.immune_count, self.dead_count = 0, 0, 0, 0
@@ -88,7 +95,7 @@ class Spread_Net():
 				self.immune_count+=1
 			else:
 				print 'node', n, 'has unidentifiable status'
-		self.spread_infection(is_lockdown)
+		self.spread_infection(is_lockdown, is_postlock)
 
 	def kill(self):
 		#kills people by a probability distribution of their sick time
@@ -125,12 +132,14 @@ class Spread_Net():
 	def recover_func(self, x):
 		return (float(1)/12)*math.exp(-(3.14)*((x-17)/12)**2)
 
-	def spread_infection(self, is_lockdown=False):
+	def spread_infection(self, is_lockdown=False, is_postlock=False):
 		to_infect = []
 		for n in self.G.nodes():
 			if self.G.node[n]['status']=='infected':
 				if self.G.node[n]['symptoms']:
 					tval = self.trans_symp
+				elif is_postlock:
+					tval = self.trans_post
 				else:
 					tval = self.trans_asymp
 				neighbors = list(self.G.neighbors(n))
@@ -177,14 +186,13 @@ class Spread_Net():
 				self.G.node[n]['future'] = 'health'
 			self.G.node[n]['recover_day'] = np.random.choice(np.arange(1,36), p = self.recover_list)
 
-	def set_parameters(self, trans_symp=0.005, trans_asymp=0.05, death_rate=0.05, immune_rate=0.85, sick_time=6, recover_time=14, asymp_ratio=0.8):
+	def set_parameters(self, trans_symp=0.005, trans_asymp=0.05, death_rate=0.05, immune_rate=0.85, asymp_ratio=0.8, trans_post=0.01):
 		self.trans_asymp = trans_asymp
 		self.trans_symp = trans_symp
 		self.death_rate = death_rate
 		self.immune_rate = immune_rate
-		self.sick_time = sick_time
-		self.recover_time = recover_time
 		self.asymp_ratio = asymp_ratio
+		self.trans_post = trans_post
 		#the following variables are hardfixed
 		#death list is picked from a gaussian around 14. ranges from 5 days to 24 days.
 		self.death_list = [0.0024, 0.0037, 0.0081, 0.0159, 0.0285, 0.0465, 0.0686, 0.0918, 0.1116, 0.1229, 0.1229, 0.1116, 0.0918, 0.0686, 0.0465, 0.0285, 0.0159, 0.0081, 0.0037, 0.0024]

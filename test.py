@@ -25,8 +25,9 @@ print 'Graph creation completed in', time.time()-start, 'seconds'
 #G = nx.read_gml(gmlreadfile)
 #print 'Network read'
 
-spreading = Spread_Net(G=G, setval=True)
+spreading = Spread_Net(G=G, infected_init=5, setval=True)
 #spreading.set_parameters(trans_asymp=0.03)
 #spreading.many_dayrun(num_days=120, curve=True)
-spreading.many_dayrun(num_days=120, curve=True, img_file = 'results/time_100k_1.png', datafile='results/data_100k_1.json')
+#spreading.many_dayrun(num_days=120, curve=True, img_file = 'results/time_100k_1.png', datafile='results/data_100k_1.json')
+spreading.many_dayrun(num_days=240, lockstart=5, lockend=65, postlock=True, complete_norm=75, curve=True)
 #spreading.many_dayrun(num_days=120, lockstart=5, lockend=50, curve=True, img_file = 'results/time_10k_1_15.png', datafile='results/data_10k_1_15.json')
