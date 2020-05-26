@@ -3,6 +3,7 @@ import itertools as it
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+import collections
 
 class Social_Net():
 
@@ -64,7 +65,10 @@ class Social_Net():
 				n_ess+=1
 				essential_nodes.append(n)
 		#print 'Number of essential people is', n_ess
-		ER = nx.erdos_renyi_graph(n_ess, self.essential_connection)
+		#ER = nx.erdos_renyi_graph(n_ess, self.essential_connection)
+		m = int(float(n_ess*self.rand_degree)/2)
+		print 'm is', m
+		ER = nx.gnm_random_graph(n_ess, m)
 		#map the ER to the actual network edges
 		for pair in list(ER.edges()):
 			self.G.add_edge(essential_nodes[pair[0]], essential_nodes[pair[1]], lockdown=True)
@@ -88,11 +92,11 @@ class Social_Net():
 		allnodes = self.G.nodes()
 		allpairs = list(it.combinations(allnodes, 2))
 		select = random.sample(allpairs, k=int(self.social_prob*len(allpairs)))
-		#print 'Social interaction will add', len(select), 'edges'
+		print 'Social interaction will add', len(select), 'edges'
 		for i,j in select:
 			self.G.add_edge(i, j, lockdown=False)
 
-	def set_parameters(self, family_sizes=[0.3, 0.35, 0.18, 0.17], workrate=0.7, essential=0.2, ba_degree=3, essential_connection=0.6, interaction_prob=0.20, social_prob=0.001):
+	def set_parameters(self, family_sizes=[0.3, 0.35, 0.18, 0.17], workrate=0.7, essential=0.2, ba_degree=3, essential_connection=0.6, interaction_prob=0.20, social_prob=0.001, rand_degree=5):
 		self.workrate = workrate
 		self.essential = essential
 		self.family_sizes = family_sizes
@@ -100,6 +104,7 @@ class Social_Net():
 		self.essential_connection = essential_connection
 		self.interaction_prob = interaction_prob
 		self.social_prob = social_prob
+		self.rand_degree = rand_degree
 
 	def return_parameters(self):
 		pardict = {}
@@ -110,6 +115,7 @@ class Social_Net():
 		pardict['essential_connection'] = self.essential_connection
 		pardict['interaction_prob'] = self.interaction_prob
 		pardict['social_prob'] = self.social_prob
+		pardict['rand_degree'] = self.rand_degree
 		return pardict
 
 	def add_clique(self, clique_size, G):
@@ -135,6 +141,24 @@ class Social_Net():
 		for i,j in list(it.combinations(nodes_to_add, 2)):
 			#print 'adding edge between', i, 'and', j
 			G.add_edge(i,j, lockdown=True)
+
+
+	def degree_histogram(self, hist_file='temp_hist.png'):
+		degree_sequence = sorted([d for n, d in self.G.degree()], reverse=True)  # degree sequence
+		#print "Degree sequence", degree_sequence
+		degreeCount = collections.Counter(degree_sequence)
+		deg, cnt = zip(*degreeCount.items())
+
+		fig, ax = plt.subplots()
+		plt.bar(deg, cnt)
+
+		plt.title("Degree Histogram")
+		plt.ylabel("Count")
+		plt.xlabel("Degree")
+		#ax.set_xticks([d + 0.4 for d in deg])
+		#ax.set_xticklabels(deg)
+		plt.savefig(hist_file, dpi=500)
+		plt.close()
 
 
 if __name__ == '__main__':

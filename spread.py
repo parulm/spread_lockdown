@@ -35,7 +35,7 @@ class Spread_Net():
 			#	print 'Running simulation for day', i+1
 			if i+1>=lockstart and i+1<=lockend:
 				self.dayrun(is_lockdown=True, is_postlock=False)
-			elif postlock:
+			elif postlock and i+1>lockend:
 				if i+1<=complete_norm:
 					self.dayrun(is_lockdown=False, is_postlock=True)
 				else:
@@ -58,21 +58,31 @@ class Spread_Net():
 			self.draw_curve(dict_tosave, N, num_days, lockstart=lockstart, lockend=lockend, complete_norm=complete_norm, img_file=img_file)
 		return dict_tosave
 
-	def draw_curve(self, datadict, N, num_days, lockstart=None, lockend=None, complete_norm=None, img_file='temp.png'):
+	def draw_curve(self, datadict, N, num_days, lockstart=None, lockend=None, complete_norm=None, confidence=False, stdevdict={}, img_file='temp.png'):
 		x = [i+1 for i in range(num_days)]
-		plt.plot(x, datadict['healthy'], 'go-', markersize=2, linewidth=0.5)
-		plt.plot(x, datadict['infected'], 'ro-', markersize=2, linewidth=0.5)
-		plt.plot(x, datadict['immune'], 'bo-', markersize=2, linewidth=0.5)
-		plt.plot(x, datadict['dead'], 'ko-', markersize=2, linewidth=0.5)
-		plt.plot(x, datadict['total'], 'yo-', markersize=2, linewidth=0.5)
+		fig, ax = plt.subplots()
+		ax.plot(x, datadict['healthy'], 'g',linewidth=0.5)
+		ax.plot(x, datadict['infected'], 'r', linewidth=0.5)
+		ax.plot(x, datadict['immune'], 'b', linewidth=0.5)
+		ax.plot(x, datadict['dead'], 'k', linewidth=0.5)
+		ax.plot(x, datadict['total'], 'y', linewidth=0.5)
 		#print 'checking before plotting', N
 		if lockstart:
-			plt.plot([lockstart]*3, [0, N/2, N], color='0.5')
+			ax.plot([lockstart]*3, [0, N/2, N], color='0.5')
 		if lockend:
-			plt.plot([lockend]*3, [0, N/2, N], color='0.5')
+			ax.plot([lockend]*3, [0, N/2, N], color='0.5')
 		if complete_norm:
-			plt.plot([complete_norm]*3, [0, N/2, N], color='pink')
-		plt.legend(['healthy', 'infected', 'immune', 'dead', 'total cases'], loc='best', fontsize='x-small')
+			ax.plot([complete_norm]*3, [0, N/2, N], color='pink')
+		if confidence:
+			if not stdevdict:
+				print 'stdevdict not specified. Skipping drawing intervals'
+			else:
+				ax.fill_between(x, [b-a for a,b in zip(stdevdict['healthy'], datadict['healthy'])], [b+a for a,b in zip(stdevdict['healthy'], datadict['healthy'])], color='g', alpha=0.1)
+				ax.fill_between(x, [b-a for a,b in zip(stdevdict['infected'], datadict['infected'])], [b+a for a,b in zip(stdevdict['infected'], datadict['infected'])], color='r', alpha=0.1)
+				ax.fill_between(x, [b-a for a,b in zip(stdevdict['immune'], datadict['immune'])], [b+a for a,b in zip(stdevdict['immune'], datadict['immune'])], color='b', alpha=0.1)
+				ax.fill_between(x, [b-a for a,b in zip(stdevdict['dead'], datadict['dead'])], [b+a for a,b in zip(stdevdict['dead'], datadict['dead'])], color='k', alpha=0.1)
+				ax.fill_between(x, [b-a for a,b in zip(stdevdict['total'], datadict['total'])], [b+a for a,b in zip(stdevdict['total'], datadict['total'])], color='y', alpha=0.1)
+		ax.legend(['healthy', 'infected', 'immune', 'dead', 'total cases'], loc='best', fontsize='x-small')
 		plt.xticks(fontsize='x-small')
 		plt.yticks(fontsize='x-small')
 		plt.savefig(img_file, dpi=500)
