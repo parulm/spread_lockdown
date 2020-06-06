@@ -6,16 +6,14 @@ import json
 import statistics
 
 #graphs x runs will be the number of simulations. And the results will be on the average of those
-graphs = 30
-runs = 100
+graphs = 10
+runs = 10
 #number of days each simulation will run for
-ndays = 120
+ndays = 240
 #number of nodes in the network
 N = 10000
 
 avgdict = {'healthy':[0 for i in range(ndays)], 'immune':[0 for i in range(ndays)], 'total':[0 for i in range(ndays)], 'infected':[0 for i in range(ndays)], 'dead':[0 for i in range(ndays)]}
-
-mindict = {'healthy':[N for i in range(ndays)], 'immune':[N for i in range(ndays)], 'total':[N for i in range(ndays)], 'infected':[N for i in range(ndays)], 'dead':[N for i in range(ndays)]}
 
 stdevdict = {'healthy':[0 for i in range(ndays)], 'immune':[0 for i in range(ndays)], 'total':[0 for i in range(ndays)], 'infected':[0 for i in range(ndays)], 'dead':[0 for i in range(ndays)]}
 
@@ -43,7 +41,8 @@ for graphno in range(graphs):
 
 		#run the spread on this graph
 		spreading = Spread_Net(G=G, setval=True)
-		datadict = spreading.many_dayrun(num_days=ndays, curve=False)
+		datadict = spreading.many_dayrun(num_days=ndays, lockstart=5, lockend=65, postlock=True, complete_norm=80, curve=False)
+		repdict = spreading.reproduction_number(givedata=False)
 		#print 'datadict', datadict
 		for k in datadict.keys():
 			for ind in range(ndays):
@@ -60,6 +59,8 @@ for graphno in range(graphs):
 	print 'Run for one graph completed in', time.time()-start, 'seconds'
 
 #print 'cumdict is', cumdict
+cumdict = spreading.filter_data(cumdict)
+
 
 allruns = graphs*runs
 for k in cumdict.keys():
@@ -71,10 +72,8 @@ for k in cumdict.keys():
 #for k in avgdict.keys():
 #	avgdict[k] = [float(j)/allruns for j in avgdict[k]]
 #print 'avgdict', avgdict
-spreading.draw_curve(datadict=avgdict, N=N, num_days=ndays, confidence=True, stdevdict=stdevdict, img_file='results_rand25/time_nolock.png')
+spreading.draw_curve(datadict=avgdict, N=N, num_days=ndays, lockstart=5, lockend=65, complete_norm=80, confidence=True, stdevdict=stdevdict, img_file='results_rand25/time_lock5-65_c80_smooth2.png')
 
-with open('results_rand25/data_nolock.json', 'w+') as fp:
-	#json.dump(avgdict, fp)
+with open('results_rand25/data_lock5-65_c80_smooth2.json', 'w+') as fp:
 	json.dump(cumdict, fp)
-	#json.dump(mindict, fp)
-	#json.dump(maxdict, fp)
+	
