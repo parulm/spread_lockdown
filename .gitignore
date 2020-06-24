@@ -2,4 +2,7 @@
 *temp*
 *.pyc
 *todel*
+*.png
+*.graphml
+filter.py
 results*/*

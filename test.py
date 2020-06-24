@@ -29,9 +29,9 @@ print 'Degree distribution plotted'
 
 spreading = Spread_Net(G=G, infected_init=5, setval=True)
 #spreading.set_parameters(trans_asymp=0.03)
-spreading.many_dayrun(num_days=240, lockstart=5, lockend=65, curve=True)
-d = spreading.reproduction_number(draw=True)
-print d
+spreading.many_dayrun(num_days=240, lockstart=5, lockend=65, postlock=True, complete_norm=70, curve=True)
+#d = spreading.reproduction_number(draw=True)
+#print d
 #spreading.many_dayrun(num_days=120, curve=True, img_file = 'results/time_10k_2.png', datafile='results/data_10k_2.json')
 #spreading.many_dayrun(num_days=240, lockstart=25, lockend=85, curve=True)
 #spreading.many_dayrun(num_days=180, lockstart=5, lockend=45, postlock=True, complete_norm=75, curve=True)

@@ -35,6 +35,7 @@ class Spread_Net():
 
 	def many_dayrun(self, num_days, lockstart=None, lockend=None, postlock=False, complete_norm=None, curve=False, img_file='temp.png', datafile='temp.json'):
 		self.complete_norm = complete_norm
+		self.lockend = lockend
 		#self.set_parameters()
 		for i in range(num_days):
 			#if i%10==0:
@@ -58,6 +59,10 @@ class Spread_Net():
 		self.cases_data = self.cases_data[:-1]
 		#save data to datafile
 		dict_tosave = {'infected':self.inf_data, 'healthy':self.health_data, 'dead': self.dead_data, 'immune':self.immune_data, 'total':self.cases_data}
+		tempdict = self.reproduction_number(givedata=False)
+		dict_tosave['repno'] = []
+		for tempkey in sorted(tempdict.keys())[:-1]:
+			dict_tosave['repno'].append(tempdict[tempkey])
 		with open(datafile, 'w+') as fp:
 			json.dump(dict_tosave, fp)
 		if curve:
@@ -65,7 +70,7 @@ class Spread_Net():
 			self.draw_curve(dict_tosave, N, num_days, lockstart=lockstart, lockend=lockend, complete_norm=complete_norm, img_file=img_file)
 		return dict_tosave
 
-	def draw_curve(self, datadict, N, num_days, lockstart=None, lockend=None, complete_norm=None, confidence=False, stdevdict={}, img_file='temp.png'):
+	def draw_curve(self, datadict, N, num_days, lockstart=None, lockend=None, complete_norm=None, confidence=False, stdevdict={}, img_file='temp.png', rep_file='rep_temp.png'):
 		x = [i+1 for i in range(num_days)]
 		fig, ax = plt.subplots()
 		ax.plot(x, datadict['healthy'], 'g',linewidth=0.5)
@@ -93,6 +98,14 @@ class Spread_Net():
 		plt.xticks(fontsize='x-small')
 		plt.yticks(fontsize='x-small')
 		plt.savefig(img_file, dpi=500)
+		plt.close()
+		#create another plot for the reproduction number (range is different)
+		fig, ax = plt.subplots()
+		ax.plot(x, datadict['repno'], 'bo-', markersize=1, linewidth=0.5)
+		if confidence:
+			ax.fill_between(x, [b-a for a,b in zip(stdevdict['repno'], datadict['repno'])], [b+a for a,b in zip(stdevdict['repno'], datadict['repno'])], color='b', alpha=0.1)
+		ax.plot(x, [1]*len(x), 'k', linewidth=0.5)
+		plt.savefig(rep_file, dpi=500)
 		plt.close()
 
 
@@ -181,13 +194,9 @@ class Spread_Net():
 				if self.G.node[n]['symptoms']:
 					tval = self.trans_symp
 				elif is_postlock:
-					#print 'In postlock, daynum is', daynum
-					if daynum<=self.complete_norm-self.transition:
-						tval = self.trans_post
-					else:
-						factor = float(self.complete_norm-daynum)/self.transition
-						tval = self.trans_asymp - factor*(self.trans_asymp-self.trans_post)
-						#print 'tval in postlock on day', daynum, 'is', tval
+					factor = float(self.complete_norm-daynum)/(self.complete_norm - self.lockend)
+					tval = self.trans_asymp - factor*(self.trans_asymp-self.trans_post)
+					#print 'In postlock, daynum is', daynum, 'tval is', tval
 				else:
 					tval = self.trans_asymp
 				neighbors = list(self.G.neighbors(n))
@@ -313,6 +322,7 @@ class Spread_Net():
 			ax.plot(list_of_days, [1]*len(list_of_days), 'k', linewidth=0.5)
 			#ax.fill_between(list_of_days, [b-a for a,b in zip(std, reps)], [b+a for a,b in zip(std, reps)], color='g', alpha=0.1)
 			plt.savefig(img_file, dpi=500)
+			plt.close()
 		return rep_by_day
 
 
